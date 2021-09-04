@@ -1,0 +1,12 @@
+*/data
+*__pycache__*
+*.ipynb
+*/output*
+*/snapshots
+*/pretrain*
+*/results/
+*.pt
+image-affine/old_codes/*
+*.pyc
+*.zip
+*.png
