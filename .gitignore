@@ -6,7 +6,8 @@
 */pretrain*
 */results/
 *.pt
-image-affine/old_codes/*
+*/old_codes/
+old_codes
 *.pyc
 *.zip
 *.png
