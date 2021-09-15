@@ -157,10 +157,10 @@ if __name__ == 'main':
 
     # load model and dataset
     model = load_model(method, model_name)
-    test_dataloader = DataLoader(load_dataset(dataset_name, './output_3way'),
+    test_dataloader = DataLoader(load_dataset(dataset_name, './output'),
         batch_size=batch_size, shuffle=False)
-    params_list = load_parameter(dataset_name, './output_3way')
+    params_list = load_parameter(dataset_name, './output')
 
-    with open(f'./output_3way/{dataset_name}_{method}_revert.csv', 'a') as f:
+    with open(f'./output/{dataset_name}_{method}_revert.csv', 'a') as f:
         csv_writer = csv.writer(f)
         rotation_test_results = testData_rotate(model, test_dataloader, csv_writer, title = 'Reverting')

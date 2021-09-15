@@ -12,66 +12,41 @@ import torch.utils.data
 from torch.utils.data.dataset import Subset
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
-import random
-import torchvision.transforms.functional as TF
-import models.densenet as dn
 from utils.affine import CustomizedRandomAffine
 from utils.metric import AverageMeter, accuracy
 from common import load_model
 
 
-parser = argparse.ArgumentParser(description='PyTorch DenseNet Training')
-# 训练参数
+parser = argparse.ArgumentParser(description='Baseline Model Training: CIFAR10/CIFAR100/TinyImagenet')
 
+# training parameters
 parser.add_argument('-b', '--batch-size', default=64, type=int,
                     help='mini-batch size (default: 64)')
 parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
                     help='initial learning rate')
+parser.add_argument('--epochs', default=300, type=int,
+                    help='number of total epochs to run')
 parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
 parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float,
                     help='weight decay (default: 1e-4)')
 parser.add_argument('--print-freq', '-p', default=10, type=int,
                     help='print frequency (default: 10)')
-# 增加的参数
+# experiment options
 parser.add_argument('--model-name', default='densenet', type=str,
                     help='model architecture (densenet | resnet | wideresnet)')
 parser.add_argument('--dataset-name', default='cifar10', type=str,
                     help='dataset')
-#Device options
+# device options
 parser.add_argument('--gpu-id', default='0', type=str,
                     help='id(s) for CUDA_VISIBLE_DEVICES')
-parser.add_argument('--epochs', default=300, type=int,
-                    help='number of total epochs to run')
-# data_used, refine的时候要用到
+# fine tuning option
 parser.add_argument('--sample-data', dest='sample_data', action='store_true',
                     help='use part data')
-# 直接写死了
-# augument 写死
-# parser.add_argument('--no-augment', dest='augment', action='store_false',
-#                     help='whether to use standard augmentation (default: True)')
-
-# 没有使用的参数，直接用的现有数据
-# parser.add_argument('--layers', default=100, type=int,
-#                     help='total number of layers (default: 100)')
-# parser.add_argument('--growth', default=12, type=int,
-#                     help='number of new channels per layer (default: 12)')
-# parser.add_argument('--droprate', default=0, type=float,
-#                     help='dropout probability (default: 0.0)')
-# parser.add_argument('--reduce', default=0.5, type=float,
-#                     help='compression rate in transition stage (default: 0.5)')
-# parser.add_argument('--no-bottleneck', dest='bottleneck', action='store_false',
-#                     help='To not use bottleneck block')
-
-# resume, 暂不需要
+# special
 parser.add_argument('--resume', dest='resume', action='store_true',
                     help='whether to resume')
-# parser.add_argument('--start-epoch', default=0, type=int,
-#                     help='manual epoch number (useful on restarts)')
-
 parser.add_argument('--test', dest='test', action='store_true',
                     help='whether to test')
-# parser.add_argument('--name', default='densenet', type=str,
-#                     help='name of experiment')
 
 
 def main():
@@ -94,29 +69,14 @@ def main():
         normalize = transforms.Normalize(mean=[x/255.0 for x in [125.3, 123.0, 113.9]],
                                      std=[x/255.0 for x in [63.0, 62.1, 66.7]])
     else:
-        return
-    # if args.augment:
-    #     transform_train = transforms.Compose([
-    #         # transforms.RandomCrop(32, padding=4),
-    #         # transforms.RandomHorizontalFlip(),
-    #         transforms.CenterCrop((32, 32)),
-    #         CustomizedRandomAffine(degree, choices, translate_range),
-    #         transforms.ToTensor(),
-    #         normalize,
-    #         ])
-    # else:
-    #     transform_train = transforms.Compose([
-    #         transforms.ToTensor(),
-    #         normalize,
-    #         ])
+        raise Exception(f'{args.dataset_name} does not exsit.')
+
     transform_train = transforms.Compose([
-        # transforms.CenterCrop((32, 32)),
         CustomizedRandomAffine(degree, choices, translate_range),
         transforms.ToTensor(),
         normalize
         ])
     transform_test = transforms.Compose([
-        # transforms.Resize((32, 32)),
         CustomizedRandomAffine(degree, [90, 180, 270], translate_range),
         transforms.ToTensor(),
         normalize
@@ -135,7 +95,7 @@ def main():
     else:
         return
 
-    # 为了做fine tuning，只取1000个样本
+    # for fine tuning，only take 1000 samples
     if args.sample_data:
         train_indices = torch.randperm(len(train_dataset))[:1000]
         train_dataset = Subset(train_dataset, train_indices)
@@ -144,15 +104,9 @@ def main():
         train_dataset, batch_size=args.batch_size, shuffle=False, **kwargs)
     val_loader = torch.utils.data.DataLoader(
         val_dataset, batch_size=args.batch_size, shuffle=True, **kwargs)
-
     print('data samples:', len(train_loader.dataset))
-    # create model
-    # net_type = 'densenet'
-    # pre_trained_net = './pre_trained/' + net_type + '_' + 'cifar10' + '.pth'
-    # num_classes = 10
 
-    # 完全重训练，不需要加载
-    # model = dn.DenseNet3(depth=100, num_classes=num_classes)
+    # load the model
     model = load_model(method='baseline', model_name=args.model_name, load_data=args.resume)
 
     # get the number of model parameters
@@ -160,24 +114,7 @@ def main():
         sum([p.data.nelement() for p in model.parameters()])))
     
     # for training on multiple GPUs. 
-    # Use CUDA_VISIBLE_DEVICES=0,1 to specify which GPUs to use
     model = torch.nn.DataParallel(model).cuda()
-    # model = model.cuda()
-
-    # 暂时不考虑resume了
-    # optionally resume from a checkpoint
-    # if args.resume:
-    #     if os.path.isfile(args.resume):
-    #         print("=> loading checkpoint '{}'".format(args.resume))
-    #         checkpoint = torch.load(args.resume)
-    #         args.start_epoch = checkpoint['epoch']
-    #         best_prec1 = checkpoint['best_prec1']
-    #         model.load_state_dict(checkpoint['state_dict'])
-    #         print("=> loaded checkpoint '{}' (epoch {})"
-    #               .format(args.resume, checkpoint['epoch']))
-    #     else:
-    #         print("=> no checkpoint found at '{}'".format(args.resume))
-
     cudnn.benchmark = True
 
     # define loss function (criterion) and pptimizer
