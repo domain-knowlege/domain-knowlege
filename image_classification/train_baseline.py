@@ -54,7 +54,7 @@ def main():
     args = parser.parse_args()
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu_id
     
-    # 此处设置训练的参数
+    # parameter for training
     degree = 15
     translate_range = 0.2
     choices = [0, 90, 180, 270]
