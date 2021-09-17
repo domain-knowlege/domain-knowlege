@@ -20,7 +20,7 @@ from revert_rotation import get_reward, get_affined, get_scores
 
 
 def get_cmd_args():
-    parser = argparse.ArgumentParser(description='Pytorch Detecting Out-of-distribution examples in neural networks')
+    parser = argparse.ArgumentParser(description='Pytorch Evaluating the Effectiveness of Using Domain Knowledge')
     
     # General arguments
     parser.add_argument('--gpu-id', default='4', type=str,

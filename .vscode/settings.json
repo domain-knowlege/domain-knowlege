@@ -1,8 +1,9 @@
 {
     "python.pythonPath": "/home/zhusy/anaconda3/bin/python",
     "python.analysis.extraPaths": [
-        "./code",
-        "./NGS-master"
+        "./image_classification",
+        "./sentiment_analysis",
+        "./formula_prediction"
     ],
     "python.linting.pylintEnabled": true,
     "python.linting.enabled": true

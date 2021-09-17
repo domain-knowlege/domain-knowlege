@@ -19,7 +19,7 @@ from common import load_model, load_dataset, load_parameter
 
 
 def get_cmd_args():
-    parser = argparse.ArgumentParser(description='Pytorch Detecting Out-of-distribution examples in neural networks')
+    parser = argparse.ArgumentParser(description='Pytorch Revert the Affined Dataset')
     # General arguments
     parser.add_argument('--gpu-id', default='4', type=str,
                         help='id(s) for CUDA_VISIBLE_DEVICES')
