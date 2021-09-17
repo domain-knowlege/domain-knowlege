@@ -12,7 +12,6 @@ import os
 import argparse
 
 
-# opt由main.py传入
 def train_model(opt):
     np.random.seed(opt.random_seed)
     torch.manual_seed(opt.manual_seed)
@@ -25,7 +24,6 @@ def train_model(opt):
     train(model, train_set, test_set, opt)
 
 
-# 包含了fix选项，开启恢复功能
 def evaluate(model, dataloader, fix=False):
     model.eval() 
     res_all = []
@@ -84,7 +82,6 @@ grammar = nltk.CFG.fromstring(grammar_rules)
 gep_parser = GeneralizedEarley(grammar)
 
 
-# 包含了fix选项，开启恢复功能
 def evaluate_revert(model, dataloader, fix=False, method='softmax'):
     model.eval() 
     res_all = []
@@ -116,17 +113,9 @@ def evaluate_revert(model, dataloader, fix=False, method='softmax'):
                 consecutive_goal_stopping=10, batch_size=input_length
             )
             final_weights = es.run(100, print_step=10)
-            del weights
-            del es
             _, affined_img_seq = get_reward(weights=final_weights, model=model, images=img_seq, seq_len=seq_len, population=0, method=method)
-            del final_weights
-            # print('img_seq:', img_seq.shape)
-            # save_image(img_seq.reshape(64, -1, 45, 45), 'img_seq.png')
-            # print('img_seq2:', affined_img_seq.shape)
-            # save_image(affined_img_seq.reshape(64, -1, 45, 45), 'img_seq2.png')
             masked_probs = model(affined_img_seq)
             selected_probs, preds = torch.max(masked_probs, -1)
-            # selected_probs = torch.log(selected_probs+1e-12)
             # print('shape:', img_seq.shape)
             # [batch, seq_len, channel, size, size] [64, 7, 1, 45, 45]
             if fix:
@@ -154,14 +143,11 @@ def evaluate_revert(model, dataloader, fix=False, method='softmax'):
     return acc, sym_acc
 
 
-# prepare for reverting
 def get_reward(weights, model, images, seq_len, population=0, method='softmax'):
     with torch.no_grad():
         batch_affined_imgs = None
         for index, img_seq in enumerate(images):
             image_weights = weights[(population+1) * index: (population+1) * (index + 1)]
-            # print('images:', images.shape)
-            # print('image:', image.shape)
             affined_imgs = []
             for _, weight in enumerate(image_weights):
                 angle = weight[0].item() * 180
@@ -169,46 +155,33 @@ def get_reward(weights, model, images, seq_len, population=0, method='softmax'):
                 translate_y = weight[2].item() * 0.1
                 affined_img = TF.affine(img_seq, angle=angle, translate=[translate_x, translate_y], scale=1, shear=0)
                 affined_imgs.append(affined_img)
-                # print('shape:', affined_img.shape)
 
             affined_imgs = torch.stack(affined_imgs)
-            # print('affined:', affined_imgs.shape)
 
             if batch_affined_imgs is None:
                 batch_affined_imgs = affined_imgs
             else:
                 batch_affined_imgs = torch.cat((batch_affined_imgs, affined_imgs), 0)
-        
-        # print('batch_affined_imgs:', batch_affined_imgs.shape)
-
 
         if method == 'softmax':
             logits = model(batch_affined_imgs)
-            # print('logits:', logits.shape)
             softmax_ = F.log_softmax(logits, dim=2)
             max_scores = softmax_.max(dim=2)[0]
             # max_scores: [64, seq_len]
             max_scores = max_scores.sum(dim=1)
             # max_scores: [64]
-            # print('max_scores:', max_scores.shape)
         else:
             max_scores = []
             probs = model(batch_affined_imgs)
             _, preds = torch.max(probs, -1)
-            # print('xxx:', preds.shape, seq_len.shape)
             for i, (i_pred, i_prob) in enumerate(zip(preds, probs)):
                 i_len = seq_len[i//(population + 1)]
-                # print(i_len)
                 i_pred = i_pred[:i_len]
                 i_prob = i_prob[:i_len]
                 i_expr = ''.join([id2sym(idx) for idx in i_pred])
-                # i_prob = np.concatenate([np.zeros([i_prob.size(0), 1]) + 1e-12, i_prob.detach().cpu()], axis=1)
                 i_prob = i_prob.detach().cpu().numpy()
-                # print('[fix]', i_expr,)
                 best_string, prob = gep_parser.parse(i_prob)
-                # print(best_string)
                 best_string = ''.join([id2sym(int(x)) for x in best_string.split(' ')])
-                # print(' -> ', best_string)
                 max_scores.append(prob)
             max_scores = torch.tensor(max_scores)
     return max_scores, batch_affined_imgs
@@ -230,11 +203,9 @@ def train(model, train_set, test_set, opt):
         os.makedirs(opt.output_dir)
 
 
-    ###########evaluate init model###########
     acc, sym_acc = evaluate(model, eval_dataloader, fix=False)
     print('{0} (Acc={1:.2f}, Symbol Acc={2:.2f})'.format('test', 100*acc, 100*sym_acc))
     print()
-    #########################################
 
     acc, sym_acc = evaluate_revert(model, eval_dataloader, fix=True, method='softmax')
     print('{0} (Acc={1:.2f}, Symbol Acc={2:.2f})'.format('test', 100*acc, 100*sym_acc))

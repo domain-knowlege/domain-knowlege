@@ -3,14 +3,11 @@ import argparse
 from utils import *
 from dataset import *
 from NN_AOG import NNAOG
-from diagnosis import ExprTree
-from strategies.evolution import EvolutionModule
-from functools import partial
 
 import torch
 import numpy as np
 
-# opt由main.py传入
+
 def train_model(opt):
     np.random.seed(opt.random_seed)
     torch.manual_seed(opt.manual_seed)
@@ -23,7 +20,6 @@ def train_model(opt):
     train(model, train_set, test_set, opt)
 
 
-# 包含了fix选项，开启恢复功能
 def evaluate(model, dataloader, fix=False):
     model.eval() 
     res_all = []
@@ -68,8 +64,6 @@ def evaluate(model, dataloader, fix=False):
 
 
 def train(model, train_set, test_set, opt):
-    # mode = opt.mode
-    # nstep = opt.nstep
     num_workers = opt.num_workers
     batch_size = opt.batch_size
     lr = opt.lr
@@ -100,11 +94,9 @@ def train(model, train_set, test_set, opt):
             'val_accs': []
     }
         
-    ###########evaluate init model###########
     acc, sym_acc = evaluate(model, eval_dataloader, fix=True)
     print('{0} (Acc={1:.2f}, Symbol Acc={2:.2f})'.format('test', 100*acc, 100*sym_acc))
     print()
-    #########################################
 
     iter_counter = -1
     for epoch in range(num_epochs):
@@ -128,35 +120,17 @@ def train(model, train_set, test_set, opt):
             max_len = img_seq.shape[1]
             masked_probs = model(img_seq)
 
-            # if mode == "BS":
-            if True:
-                selected_probs, preds = torch.max(masked_probs, -1)
-                selected_probs = torch.log(selected_probs+1e-20)
-                masked_probs = torch.log(masked_probs + 1e-20)
-                probs = masked_probs
+            selected_probs, preds = torch.max(masked_probs, -1)
+            selected_probs = torch.log(selected_probs+1e-20)
+            masked_probs = torch.log(masked_probs + 1e-20)
+            probs = masked_probs
 
-                # rewards = compute_rewards(preds.data.cpu().numpy(), res.numpy(), seq_len)
-                # if reward_moving_average is None:
-                #     reward_moving_average = np.mean(rewards)
-                # reward_moving_average = reward_moving_average * reward_decay \
-                #         + np.mean(rewards) * (1 - reward_decay)
-                # rewards = rewards - reward_moving_average
-                
-                # fix_list = find_fix(preds.data.cpu().numpy(), res.numpy(), seq_len.numpy(), 
-                #                 probs.data.cpu().numpy(), nstep)
-                # pseudo_label_seq = []
-                # for fix in fix_list:
-                #     fix = fix + [-1] * (max_len - len(fix)) # -1 is ignored index in nllloss
-                #     pseudo_label_seq.append(fix)
-                # pseudo_label_seq = np.array(pseudo_label_seq)
-                # pseudo_label_seq = torch.tensor(pseudo_label_seq).to(device)
-                loss = criterion(probs.reshape((-1, probs.shape[-1])), label_seq.reshape((-1,)))
+            loss = criterion(probs.reshape((-1, probs.shape[-1])), label_seq.reshape((-1,)))
 
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-            
             selected_probs2, preds2 = torch.max(masked_probs, -1)
             selected_probs2 = torch.log(selected_probs2+1e-12)
             expr_preds, res_pred_all = eval_expr(preds2.data.cpu().numpy(), seq_len)
@@ -190,9 +164,6 @@ def train(model, train_set, test_set, opt):
             time_elapsed // 60, time_elapsed % 60))
         #print(flush=True)
 
-    # acc, sym_acc = evaluate(model, eval_dataloader, fix=True)
-    # print('{0} (Acc={1:.2f}, Symbol Acc={2:.2f})'.format('test', 100*acc, 100*sym_acc))
-
     acc, sym_acc = evaluate(model, eval_dataloader)
     print('{0} (Acc={1:.2f}, Symbol Acc={2:.2f})'.format('test', 100*acc, 100*sym_acc))
 
@@ -207,8 +178,6 @@ def train(model, train_set, test_set, opt):
 
 parser = argparse.ArgumentParser()
 # Model
-# parser.add_argument('--mode', default='BS', type=str, help='choose mode. BS or RL or MAPO' )
-# parser.add_argument('--nstep', default=5, type=int, help='number of steps of backsearching')
 parser.add_argument('--pretrain', default=None, type=str, help='pretrained symbol net')
 # Dataloader
 parser.add_argument('--data_used', default=1.00, type=float, help='percentage of data used')
